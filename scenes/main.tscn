@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3 uid="uid://main_scene"]
+[gd_scene load_steps=5 format=3 uid="uid://main_scene"]
 
 [ext_resource type="Script" path="res://scripts/GameManager.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/Player.gd" id="2"]
@@ -7,23 +7,12 @@
 [ext_resource type="Script" path="res://scripts/BotManager.gd" id="5"]
 [ext_resource type="Script" path="res://scripts/MonsterManager.gd" id="6"]
 
-[sub_resource type="ProceduralSkyMaterial" id="Sky_mat"]
-sky_top_color = Color(0.3, 0.55, 0.9, 1)
-sky_horizon_color = Color(0.55, 0.78, 0.45, 1)
-ground_bottom_color = Color(0.2, 0.35, 0.1, 1)
-ground_horizon_color = Color(0.3, 0.5, 0.2, 1)
-sun_angle_max = 30.0
-sun_curve = 0.1
-
-[sub_resource type="Sky" id="Sky_1"]
-sky_material = SubResource("Sky_mat")
-
 [sub_resource type="Environment" id="Env_1"]
-background_mode = 2
-sky = SubResource("Sky_1")
-ambient_light_source = 2
-ambient_light_color = Color(0.7, 0.8, 0.65, 1)
-ambient_light_energy = 2.0
+background_mode = 1
+background_color = Color(0.35, 0.58, 0.82, 1)
+ambient_light_source = 1
+ambient_light_color = Color(1, 1, 1, 1)
+ambient_light_energy = 3.5
 fog_enabled = false
 glow_enabled = false
 tonemap_mode = 0
@@ -35,16 +24,9 @@ script = ExtResource("1")
 environment = SubResource("Env_1")
 
 [node name="Sun" type="DirectionalLight3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 0.7, 0.71, 0, -0.71, 0.7, 0, 40, 0)
-light_color = Color(1.0, 0.97, 0.88, 1)
-light_energy = 3.0
-shadow_enabled = true
-directional_shadow_max_distance = 120.0
-
-[node name="FillLight" type="DirectionalLight3D" parent="."]
-transform = Transform3D(-1, 0, 0, 0, 0.5, 0.87, 0, 0.87, -0.5, 0, 20, 0)
-light_color = Color(0.5, 0.65, 0.9, 1)
-light_energy = 1.2
+transform = Transform3D(1, 0, 0, 0, 0.6, 0.8, 0, -0.8, 0.6, 0, 50, 0)
+light_color = Color(1.0, 0.95, 0.85, 1)
+light_energy = 4.0
 shadow_enabled = false
 
 [node name="TerrainRoot" type="Node3D" parent="."]
