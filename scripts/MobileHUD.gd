@@ -47,14 +47,20 @@ var rain_overlay    : ColorRect
 var player : Player
 
 func _ready() -> void:
+	add_to_group("mobile_hud")
 	_build_ui()
 	player = get_tree().get_first_node_in_group("player") as Player
+	# Try to connect GM signals - retry if not ready yet
 	var gm := get_tree().get_first_node_in_group("game_manager") as GameManager
 	if gm:
-		gm.log_message.connect(_on_log_message)
-		gm.round_ended.connect(_on_round_ended)
-		gm.player_died.connect(_on_player_died)
-		gm.day_changed.connect(_on_day_changed)
+		if not gm.log_message.is_connected(_on_log_message):
+			gm.log_message.connect(_on_log_message)
+		if not gm.round_ended.is_connected(_on_round_ended):
+			gm.round_ended.connect(_on_round_ended)
+		if not gm.player_died.is_connected(_on_player_died):
+			gm.player_died.connect(_on_player_died)
+		if not gm.day_changed.is_connected(_on_day_changed):
+			gm.day_changed.connect(_on_day_changed)
 	set_process_input(true)
 
 # ══════════════════════════════════════════════════════════════

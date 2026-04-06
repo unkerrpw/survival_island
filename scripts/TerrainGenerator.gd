@@ -1,10 +1,10 @@
 extends Node3D
 class_name TerrainGenerator
 
-const MAP_SIZE     := 80
+const MAP_SIZE     := 60
 const CHUNK_SIZE   := 4
-const HEIGHT_SCALE := 8.0
-const WATER_LEVEL  := 0.5
+const HEIGHT_SCALE := 5.0
+const WATER_LEVEL  := 0.3
 
 var noise : FastNoiseLite
 var rng   : RandomNumberGenerator
@@ -19,6 +19,7 @@ var mat_wood   : StandardMaterial3D
 var mat_leaves : StandardMaterial3D
 
 func _ready() -> void:
+	add_to_group("terrain_gen")
 	rng = RandomNumberGenerator.new()
 	rng.randomize()
 	_setup_materials()
@@ -65,77 +66,91 @@ func _setup_materials() -> void:
 
 func _generate_terrain() -> void:
 	noise = FastNoiseLite.new()
-	noise.noise_type   = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
-	noise.seed         = rng.randi()
-	noise.frequency    = 0.025
-	noise.fractal_octaves = 5
-	noise.fractal_gain    = 0.5
-	noise.fractal_lacunarity = 2.0
+	noise.noise_type      = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	noise.seed            = rng.randi()
+	noise.frequency       = 0.03
+	noise.fractal_octaves = 4
 
-	var surface := SurfaceTool.new()
-	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var half := MAP_SIZE / 2.0
 
-	var half  := MAP_SIZE / 2.0
-	var step  := 1.0
-	var verts := []
-
+	# Build height grid
+	_verts_cache = []
 	for z in range(MAP_SIZE + 1):
 		var row := []
 		for x in range(MAP_SIZE + 1):
-			var wx := x - half
-			var wz := z - half
-			# Island shape: fade to water at edges
+			var wx := float(x) - half
+			var wz := float(z) - half
 			var dist_norm := Vector2(wx, wz).length() / half
-			var island_mask := clamp(1.0 - smoothstep(0.55, 0.9, dist_norm), 0.0, 1.0)
-			var h := (noise.get_noise_2d(wx, wz) * 0.5 + 0.5) * HEIGHT_SCALE * island_mask
-			h = max(h, WATER_LEVEL * 0.9)
+			var island_mask := clamp(1.0 - smoothstep(0.5, 0.85, dist_norm), 0.0, 1.0)
+			var n := (noise.get_noise_2d(wx, wz) * 0.5 + 0.5)
+			var h := n * HEIGHT_SCALE * island_mask
+			h = max(h, 0.05)
 			row.append(Vector3(wx, h, wz))
-		verts.append(row)
+		_verts_cache.append(row)
 
-	# Build mesh quads
+	# Build ArrayMesh
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	var verts   := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var uvs     := PackedVector2Array()
+	var indices := PackedInt32Array()
+	var colors  := PackedColorArray()
+
 	for z in range(MAP_SIZE):
 		for x in range(MAP_SIZE):
-			var v00 := verts[z][x]
-			var v10 := verts[z][x+1]
-			var v01 := verts[z+1][x]
-			var v11 := verts[z+1][x+1]
-			var avg_h := (v00.y + v10.y + v01.y + v11.y) / 4.0
-			var mat := _pick_material(avg_h, Vector2(v00.x, v00.z))
-			surface.set_material(mat)
-			# Triangle 1
-			surface.set_normal(_calc_normal(v00,v10,v11))
-			surface.set_uv(Vector2(0,0)); surface.add_vertex(v00)
-			surface.set_uv(Vector2(1,0)); surface.add_vertex(v10)
-			surface.set_uv(Vector2(1,1)); surface.add_vertex(v11)
-			# Triangle 2
-			surface.set_normal(_calc_normal(v00,v11,v01))
-			surface.set_uv(Vector2(0,0)); surface.add_vertex(v00)
-			surface.set_uv(Vector2(1,1)); surface.add_vertex(v11)
-			surface.set_uv(Vector2(0,1)); surface.add_vertex(v01)
+			var v00 := _verts_cache[z][x]
+			var v10 := _verts_cache[z][x+1]
+			var v01 := _verts_cache[z+1][x]
+			var v11 := _verts_cache[z+1][x+1]
+			var base := verts.size()
+			verts.append_array([v00, v10, v11, v01])
+			var n1 := (v10 - v00).cross(v01 - v00).normalized()
+			normals.append_array([n1, n1, n1, n1])
+			uvs.append_array([
+				Vector2(float(x)/MAP_SIZE, float(z)/MAP_SIZE),
+				Vector2(float(x+1)/MAP_SIZE, float(z)/MAP_SIZE),
+				Vector2(float(x+1)/MAP_SIZE, float(z+1)/MAP_SIZE),
+				Vector2(float(x)/MAP_SIZE, float(z+1)/MAP_SIZE),
+			])
+			var avg_h := (v00.y + v10.y + v01.y + v11.y) * 0.25
+			var col := _height_color(avg_h)
+			colors.append_array([col, col, col, col])
+			indices.append_array([base, base+1, base+2, base, base+2, base+3])
+
+	arrays[Mesh.ARRAY_VERTEX]  = verts
+	arrays[Mesh.ARRAY_NORMAL]  = normals
+	arrays[Mesh.ARRAY_TEX_UV]  = uvs
+	arrays[Mesh.ARRAY_COLOR]   = colors
+	arrays[Mesh.ARRAY_INDEX]   = indices
+
+	var arr_mesh := ArrayMesh.new()
+	arr_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+
+	var mat := StandardMaterial3D.new()
+	mat.vertex_color_use_as_albedo = true
+	mat.roughness = 0.9
+	arr_mesh.surface_set_material(0, mat)
 
 	var mesh_inst := MeshInstance3D.new()
-	mesh_inst.mesh = surface.commit()
+	mesh_inst.mesh = arr_mesh
 	mesh_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	mesh_inst.name = "TerrainMesh"
 	add_child(mesh_inst)
 
-	# Add trimesh collision
-	var col_body := StaticBody3D.new()
+	# Collision
+	var col_body  := StaticBody3D.new()
 	var col_shape := CollisionShape3D.new()
-	col_shape.shape = mesh_inst.mesh.create_trimesh_shape()
+	col_shape.shape = arr_mesh.create_trimesh_shape()
 	col_body.add_child(col_shape)
 	add_child(col_body)
 
-	# Store height data for spawn queries
-	_verts_cache = verts
-
-func _pick_material(height: float, _pos: Vector2) -> StandardMaterial3D:
-	if height < WATER_LEVEL + 0.3: return mat_sand
-	if height < 2.5:               return mat_grass
-	if height < 5.0:               return mat_dirt
-	return mat_rock
-
-func _calc_normal(a: Vector3, b: Vector3, c: Vector3) -> Vector3:
-	return (b - a).cross(c - a).normalized()
+func _height_color(h: float) -> Color:
+	if h < 0.4:  return Color(0.76, 0.70, 0.50)  # sand
+	if h < 1.5:  return Color(0.22, 0.52, 0.14)  # grass
+	if h < 3.0:  return Color(0.18, 0.42, 0.10)  # dark grass
+	if h < 4.2:  return Color(0.40, 0.28, 0.16)  # dirt
+	return       Color(0.50, 0.48, 0.44)          # rock
 
 var _verts_cache : Array = []
 
@@ -160,34 +175,34 @@ func _place_water() -> void:
 	add_child(water_mesh)
 
 func _scatter_objects() -> void:
-	var half := MAP_SIZE / 2.0
+	var half := MAP_SIZE / 2.0 * 0.85
 	# Trees
-	for _i in 120:
-		var x := rng.randf_range(-half * 0.85, half * 0.85)
-		var z := rng.randf_range(-half * 0.85, half * 0.85)
+	for _i in 80:
+		var x := rng.randf_range(-half, half)
+		var z := rng.randf_range(-half, half)
 		var h := get_height_at(x, z)
-		if h > 1.0 and h < 5.5:
+		if h > 0.8 and h < 4.0:
 			_spawn_tree(Vector3(x, h, z))
 	# Rocks
-	for _i in 60:
-		var x := rng.randf_range(-half * 0.85, half * 0.85)
-		var z := rng.randf_range(-half * 0.85, half * 0.85)
+	for _i in 40:
+		var x := rng.randf_range(-half, half)
+		var z := rng.randf_range(-half, half)
 		var h := get_height_at(x, z)
-		if h > 0.8:
+		if h > 0.5:
 			_spawn_rock(Vector3(x, h, z))
 	# Metal deposits
-	for _i in 20:
-		var x := rng.randf_range(-half * 0.7, half * 0.7)
-		var z := rng.randf_range(-half * 0.7, half * 0.7)
-		var h := get_height_at(x, z)
-		if h > 1.5:
-			_spawn_metal(Vector3(x, h, z))
-	# Food bushes
-	for _i in 40:
+	for _i in 15:
 		var x := rng.randf_range(-half * 0.8, half * 0.8)
 		var z := rng.randf_range(-half * 0.8, half * 0.8)
 		var h := get_height_at(x, z)
-		if h > 0.6 and h < 4.0:
+		if h > 1.0:
+			_spawn_metal(Vector3(x, h, z))
+	# Food bushes
+	for _i in 30:
+		var x := rng.randf_range(-half, half)
+		var z := rng.randf_range(-half, half)
+		var h := get_height_at(x, z)
+		if h > 0.4 and h < 3.5:
 			_spawn_bush(Vector3(x, h, z))
 
 func _spawn_tree(pos: Vector3) -> void:
@@ -332,11 +347,10 @@ func _spawn_bush(pos: Vector3) -> void:
 	add_child(body)
 
 func _add_border_walls() -> void:
-	# Invisible kill zone marker (visual ring)
 	var ring := MeshInstance3D.new()
 	var torus := TorusMesh.new()
-	torus.inner_radius = 38.0
-	torus.outer_radius = 40.0
+	torus.inner_radius = 27.0
+	torus.outer_radius = 30.0
 	torus.rings = 64
 	torus.ring_segments = 8
 	ring.mesh = torus
@@ -345,7 +359,7 @@ func _add_border_walls() -> void:
 	ring_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	ring_mat.emission_enabled = true
 	ring_mat.emission = Color(1,0.3,0)
-	ring_mat.emission_energy = 1.5
+	ring_mat.emission_energy = 2.0
 	ring.set_surface_override_material(0, ring_mat)
 	ring.position.y = 1.0
 	add_child(ring)

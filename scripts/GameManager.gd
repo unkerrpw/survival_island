@@ -29,11 +29,13 @@ var player_kills   : int   = 0
 
 # ─── Refs ──────────────────────────────────────────────────
 @onready var sun    : DirectionalLight3D = $DirectionalLight
-@onready var sky_env: WorldEnvironment   = $WorldEnvironment
-@onready var bots   : Node3D             = $BotManager
-@onready var monsters: Node3D           = $MonsterManager
-@onready var hud    : CanvasLayer        = $MobileHUD
-@onready var terrain: Node3D            = $TerrainRoot
+var _hud : MobileHUD = null
+
+var hud : MobileHUD:
+	get:
+		if _hud == null:
+			_hud = get_tree().get_first_node_in_group("mobile_hud") as MobileHUD
+		return _hud
 
 static var instance : GameManager
 
@@ -45,8 +47,7 @@ func _ready() -> void:
 	emit_signal("log_message", "🏝 Раунд начался! Выживи!", Color.YELLOW)
 
 func _setup_scene() -> void:
-	# Terrain generation happens in TerrainGenerator autoload
-	pass
+	pass  # terrain + bots generate themselves
 
 func _process(delta: float) -> void:
 	if not game_running:
@@ -116,7 +117,8 @@ func register_kill(killer_name: String, victim_name: String) -> void:
 		emit_signal("log_message", "⚔ Вы убили %s!" % victim_name, Color.YELLOW)
 	else:
 		emit_signal("log_message", "💀 %s убит %s" % [victim_name, killer_name], Color(0.8,0.3,0.3))
-	hud.update_alive(alive_count)
+	if hud:
+		hud.update_alive(alive_count)
 	if alive_count <= 1:
 		game_running = false
 		emit_signal("round_ended", "Победа!")
