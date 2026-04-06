@@ -1,0 +1,11 @@
+# Godot 4
+.godot/
+build/
+*.tmp
+*.bak
+*.swp
+*.autosave
+android/build/
+export_credentials
+*.apk
+!build/*.apk

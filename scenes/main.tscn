@@ -1,0 +1,88 @@
+[gd_scene load_steps=12 format=3 uid="uid://main_scene"]
+
+[ext_resource type="Script" path="res://scripts/GameManager.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/Player.gd" id="2"]
+[ext_resource type="Script" path="res://scripts/TerrainGenerator.gd" id="3"]
+[ext_resource type="Script" path="res://scripts/MobileHUD.gd" id="4"]
+[ext_resource type="Script" path="res://scripts/BotManager.gd" id="5"]
+[ext_resource type="Script" path="res://scripts/MonsterManager.gd" id="6"]
+
+[sub_resource type="ProceduralSkyMaterial" id="Sky_mat"]
+sky_top_color = Color(0.05, 0.08, 0.15, 1)
+sky_horizon_color = Color(0.15, 0.25, 0.15, 1)
+sky_curve = 0.15
+ground_bottom_color = Color(0.02, 0.04, 0.02, 1)
+ground_horizon_color = Color(0.08, 0.12, 0.06, 1)
+sun_angle_max = 30.0
+sun_curve = 0.15
+
+[sub_resource type="Sky" id="Sky_1"]
+sky_material = SubResource("Sky_mat")
+
+[sub_resource type="Environment" id="Env_1"]
+background_mode = 2
+sky = SubResource("Sky_1")
+ambient_light_source = 3
+ambient_light_color = Color(0.2, 0.3, 0.2, 1)
+ambient_light_energy = 0.4
+fog_enabled = true
+fog_light_color = Color(0.1, 0.15, 0.1, 1)
+fog_light_energy = 1.0
+fog_aerial_perspective = 0.3
+fog_density = 0.008
+fog_depth_begin = 30.0
+fog_depth_end = 200.0
+glow_enabled = true
+glow_intensity = 0.4
+glow_bloom = 0.1
+ssao_enabled = true
+ssao_radius = 1.0
+ssao_intensity = 1.5
+tonemap_mode = 2
+tonemap_exposure = 1.1
+tonemap_white = 6.0
+
+[sub_resource type="CameraAttributesPractical" id="CamAttr"]
+dof_blur_far_enabled = false
+auto_exposure_enabled = true
+auto_exposure_min_sensitivity = 50.0
+auto_exposure_max_sensitivity = 800.0
+
+[node name="Main" type="Node3D"]
+script = ExtResource("1")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env_1")
+camera_attributes = SubResource("CamAttr")
+
+[node name="DirectionalLight" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866, -0.354, 0.354, 0, 0.707, 0.707, -0.5, -0.612, 0.612, 0, 50, 0)
+light_color = Color(1.0, 0.95, 0.85, 1)
+light_energy = 1.8
+shadow_enabled = true
+directional_shadow_mode = 2
+directional_shadow_split_1 = 0.1
+directional_shadow_split_2 = 0.3
+directional_shadow_max_distance = 150.0
+
+[node name="TerrainRoot" type="Node3D" parent="."]
+script = ExtResource("3")
+
+[node name="PlayerRoot" type="CharacterBody3D" parent="."]
+script = ExtResource("2")
+
+[node name="Camera3D" type="Camera3D" parent="PlayerRoot"]
+transform = Transform3D(1, 0, 0, 0, 0.940, 0.342, 0, -0.342, 0.940, 0, 1.8, 0.5)
+fov = 75.0
+near = 0.05
+far = 300.0
+
+[node name="BotManager" type="Node3D" parent="."]
+script = ExtResource("5")
+
+[node name="MonsterManager" type="Node3D" parent="."]
+script = ExtResource("6")
+
+[node name="MobileHUD" type="CanvasLayer" parent="."]
+layer = 10
+script = ExtResource("4")
